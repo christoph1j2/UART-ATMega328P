@@ -14,6 +14,10 @@ int main(void)
     set_sleep_mode(SLEEP_MODE_IDLE); // zapnutí IDLE režimu
     sei();                           // zapnutí hlavního jističe přerušení
 
+    // Test uart_printf
+    int temp = 25;
+    uart_printf("Aktualni teplota je %d stupnu\r\n", temp);
+
     while (1)
     {
         cli(); // vypnutí přerušení, aby nedošlo k race condition při čtení rx_count

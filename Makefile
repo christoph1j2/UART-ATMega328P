@@ -13,7 +13,7 @@ SRC = main.c uart.c
 ## zapnuti varovani
 ## optimalizace velikosti (-Os)
 ## definice čipu
-CFLAGS = -Wall -Os -DF_CPU=$(F_CPU) -mmcu=$(MCU)
+CFLAGS = -Wall -save-temps -Os -DF_CPU=$(F_CPU) -mmcu=$(MCU)
 
 all: main.hex
 
@@ -30,4 +30,4 @@ upload: main.hex
 
 # uklid
 clean:
-	del main.elf main.hex
+	del main.elf main.hex *.s *.i *.o

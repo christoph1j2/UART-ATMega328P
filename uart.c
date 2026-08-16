@@ -1,7 +1,10 @@
-#define BUFFER_SIZE 10U
+#define BUFFER_SIZE 16U
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
+
+#include <stdarg.h>
+#include <stdlib.h>
 
 #include "uart.h"
 
@@ -63,6 +66,11 @@ void uart_init(void)
 
 void uart_transmit(unsigned char data)
 {
+    while (tx_count == BUFFER_SIZE)
+    {
+        /*polling, blokace, aby se neprepsaly znaky*/
+    }
+
     tx_buffer[tx_head] = data; // ulozime znak do bufferu
     tx_head++;                 // inkrementujeme head pointer
     if (tx_head == BUFFER_SIZE)
@@ -100,4 +108,47 @@ char uart_receive(void)
 uint8_t uart_has_data()
 {
     return rx_count;
+}
+
+void uart_printf(const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+
+    while (*format != '\0')
+    {
+        if (*format == '%')
+        {
+            switch (*(format + 1))
+            {
+            case 'd':
+                int num = va_arg(args, int);
+                char num_txt[10];
+                itoa(num, num_txt, 10);
+
+                for (int i = 0; i < 10; i++)
+                {
+                    if (num_txt[i] != '\0')
+                    {
+                        uart_transmit(num_txt[i]);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                break;
+            default:
+                break;
+            }
+
+            format++;
+        }
+        else
+        {
+            uart_transmit(*format);
+        }
+        format++;
+    }
 }
