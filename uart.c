@@ -8,25 +8,28 @@
 
 #include "uart.h"
 
-char rx_buffer[BUFFER_SIZE];
+volatile char rx_buffer[BUFFER_SIZE];
 volatile uint8_t rx_head = 0;
 volatile uint8_t rx_tail = 0;
 volatile uint8_t rx_count = 0;
 
-char tx_buffer[BUFFER_SIZE];
+volatile char tx_buffer[BUFFER_SIZE];
 volatile uint8_t tx_head = 0;
 volatile uint8_t tx_tail = 0;
 volatile uint8_t tx_count = 0;
 
 ISR(USART_RX_vect)
 {
-    rx_buffer[rx_head] = UDR0; // ulozime znak do bufferu
-    rx_head++;                 // inkrementujeme head pointer
-    rx_count++;                // inkrementujeme rx_count
-
-    if (rx_head == BUFFER_SIZE)
+    char c = UDR0; // UDR0 musí být přečten vždy, i když zahodíme data
+    if (rx_count < BUFFER_SIZE)
     {
-        rx_head %= BUFFER_SIZE; // pokud se write index ocitne za hranici bufferu, vynulujeme jej
+        rx_buffer[rx_head] = c; // ulozime znak do bufferu
+        rx_head++;              // inkrementujeme head pointer
+        if (rx_head == BUFFER_SIZE)
+        {
+            rx_head %= BUFFER_SIZE; // pokud se write index ocitne za hranici bufferu, vynulujeme jej
+        }
+        rx_count++; // inkrementujeme rx_count
     }
 }
 
@@ -66,9 +69,12 @@ void uart_init(void)
 
 void uart_transmit(unsigned char data)
 {
-    while (tx_count == BUFFER_SIZE)
+    while (1)
     {
-        /*polling, blokace, aby se neprepsaly znaky*/
+        cli();
+        if (tx_count < BUFFER_SIZE)
+            break;
+        sei();
     }
 
     tx_buffer[tx_head] = data; // ulozime znak do bufferu
@@ -77,17 +83,17 @@ void uart_transmit(unsigned char data)
     {
         tx_head %= BUFFER_SIZE; // pokud se write index ocitne za hranici bufferu, vynulujeme jej
     }
-
-    // atomicke zvyseni countu, aby nedoslo k race condition
-    cli();
     tx_count++;
-    sei();
-
     UCSR0B |= (1 << UDRIE0);
+
+    sei();
 }
 
 char uart_receive(void)
 {
+    if (rx_count == 0)
+        return '\3';
+
     char data = rx_buffer[rx_tail]; // precteni znaku z rx bufferu
     rx_tail++;                      // inkrementujeme tail pointer
 
@@ -122,6 +128,7 @@ void uart_printf(const char *format, ...)
             switch (*(format + 1))
             {
             case 'd':
+            {
                 int num = va_arg(args, int);
                 char num_txt[10];
                 itoa(num, num_txt, 10);
@@ -139,8 +146,11 @@ void uart_printf(const char *format, ...)
                 }
 
                 break;
+            }
             default:
+            {
                 break;
+            }
             }
 
             format++;
@@ -151,4 +161,6 @@ void uart_printf(const char *format, ...)
         }
         format++;
     }
+
+    va_end(args);
 }
